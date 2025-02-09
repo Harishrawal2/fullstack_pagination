@@ -22,11 +22,28 @@ export const getTodos = async (req: Request, res: Response, next: NextFunction) 
     try {
         const page: number = parseInt(req.query.page as string) || 1;
         const limit: number = parseInt(req.query.limit as string) || 10;
+        const search: string = (req.query.search as string) || "";
 
         const skip = (page - 1) * limit;
 
-        const todos = await todoModel.find().skip(skip).limit(limit);
-        const totalTodos = await todoModel.countDocuments();
+        // Create search query
+        const searchQuery = search ? {
+            title: { $regex: search, $options: "i" }
+        }
+            : {};
+
+        console.log("SearchQuery : ", searchQuery)
+        const todos = await todoModel.find(searchQuery).skip(skip).limit(limit).select("-__v");
+        console.log(todos)
+        const totalTodos = await todoModel.countDocuments(searchQuery);
+
+        if (todos.length === 0) {
+            return defaultResponse(res, 200, true, {
+                totalPages: 0,
+                totalTodos: 0,
+                todos: [],
+            }, "No todos found matching your search");
+        }
 
         return defaultResponse(res, 200, true, {
             totalPages: Math.ceil(totalTodos / limit),
